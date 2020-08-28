@@ -21,13 +21,14 @@ object Main extends TwitterServer {
           .mapK[OptionT[IO, *]](NT.OptionAppToOptionIO)
           .map(_.mapK(NT.AppToIO))
           .local(_.mapK(NT.IOtoApp))
-      val server = Http
-        .server
+      val server = Http.server
         .withLabel("http4s-example")
         .serve(port(), Finagle.mkService[IO](service.orNotFound))
       logger.info(s"Server Started on ${port()}")
-      onExit { server.close()
-      ()}
+      onExit {
+        server.close()
+        ()
+      }
       IO(Await.ready(server))
     }
   }.unsafeRunSync
