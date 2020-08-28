@@ -4,11 +4,9 @@ package route
 import org.http4s._
 import AppDsl._
 import cats.data._
-import cats._
 import cats.effect._
 import org.http4s.circe.CirceEntityCodec._
 import io.circe.generic.auto._
-import io.circe.Json
 
 object Joke {
   case class Joke(joke: String)

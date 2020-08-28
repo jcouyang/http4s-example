@@ -25,4 +25,6 @@ lazy val root = (project in file("."))
     ),
     testFrameworks += new TestFramework("munit.Framework"),
     addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full),
+    addCompilerPlugin(scalafixSemanticdb),
+    addCommandAlias("rmUnused", """set scalacOptions -= "-Xfatal-warnings";scalafix RemoveUnused;set scalacOptions += "-Xfatal-warnings""""),
   )

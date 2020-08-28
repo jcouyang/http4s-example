@@ -1,7 +1,6 @@
 package com.your.domain.http4sexample
 import ciris._
 import org.http4s.Uri
-import com.twitter.finagle._
 import com.twitter.finagle.http._
 import enumeratum._
 

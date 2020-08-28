@@ -2,15 +2,12 @@ package com.your.domain.http4sexample
 
 import scala.concurrent.ExecutionContext
 import cats.effect._
-import com.twitter.finagle.{Http, Service}
-import com.twitter.finagle.http.{Request, Response}
+import com.twitter.finagle.Http
 import com.twitter.util.Await
 import com.twitter.server.TwitterServer
-import com.twitter.util.logging._
 import org.http4s.finagle.Finagle
 import org.http4s.implicits._
 import org.http4s._
-import cats._
 import cats.data._
 
 object Main extends TwitterServer {
@@ -29,7 +26,8 @@ object Main extends TwitterServer {
         .withLabel("http4s-example")
         .serve(port(), Finagle.mkService[IO](service.orNotFound))
       logger.info(s"Server Started on ${port()}")
-      onExit { server.close() }
+      onExit { server.close()
+      ()}
       IO(Await.ready(server))
     }
   }.unsafeRunSync
