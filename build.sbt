@@ -4,10 +4,11 @@ val MunitVersion = "0.7.11"
 val TwitterVersion = "20.8.0"
 val CirisVersion = "1.1.2"
 
+
 lazy val root = (project in file("."))
   .settings(
     organization := "com.your.domain",
-    name := "http4s example",
+    name := "http4s-example",
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-core" % Http4sVersion,
       "org.http4s" %% "http4s-client" % Http4sVersion,
@@ -33,3 +34,16 @@ lazy val root = (project in file("."))
       """set scalacOptions -= "-Xfatal-warnings";scalafix RemoveUnused;set scalacOptions += "-Xfatal-warnings""""
     )
   )
+
+
+val bootstrap = taskKey[Unit]("couriser boostrap standalone")
+
+bootstrap := {  publishLocal.value;
+  import sys.process._
+  val logger = sbt.Keys.streams.value.log
+  val res = s"coursier bootstrap --standalone ${organization.value}::${name.value}:${version.value} -f -o ${name.value}" !;
+  if(res==0)
+    logger.info(s"to run simply enter `./${name.value}`")
+  else
+    sys.error("boostrap failed!")
+}
