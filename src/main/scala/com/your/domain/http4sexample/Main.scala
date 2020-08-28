@@ -8,7 +8,6 @@ import com.twitter.server.TwitterServer
 import org.http4s.finagle.Finagle
 import org.http4s.implicits._
 import org.http4s._
-import cats.data._
 
 object Main extends TwitterServer {
   implicit val ctx: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
@@ -17,10 +16,7 @@ object Main extends TwitterServer {
   def main() =
     resource.use { implicit deps =>
       val service: HttpRoutes[IO] =
-        route.all
-          .mapK[OptionT[IO, *]](NT.OptionAppToOptionIO)
-          .map(_.mapK(NT.AppToIO))
-          .local(_.mapK(NT.IOtoApp))
+        route.all.mapF(resp => resp.flatMapF(_.run(deps).map(Some(_))))
       val server = Http.server
         .withLabel("http4s-example")
         .serve(port(), Finagle.mkService[IO](service.orNotFound))

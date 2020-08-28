@@ -3,6 +3,7 @@ val Http4sVersion = "0.21.7"
 val MunitVersion = "0.7.11"
 val TwitterVersion = "20.8.0"
 val CirisVersion = "1.1.2"
+val DoobieVersion = "0.9.0"
 
 lazy val root = (project in file("."))
   .settings(
@@ -17,6 +18,10 @@ lazy val root = (project in file("."))
       "io.circe"      %% "circe-generic"                  % "0.13.0",
       "is.cir"        %% "ciris"                          % CirisVersion,
       "is.cir"        %% "ciris-enumeratum"               % CirisVersion,
+      "org.tpolecat"  %% "doobie-core"                    % DoobieVersion,
+      "org.tpolecat"  %% "doobie-postgres"                % DoobieVersion,
+      "org.tpolecat"  %% "doobie-quill"                   % DoobieVersion,
+      "org.tpolecat"  %% "doobie-hikari"                  % DoobieVersion,
       "com.twitter"   %% "twitter-server"                 % TwitterVersion,
       "com.twitter"   %% "twitter-server-logback-classic" % TwitterVersion,
       "ch.qos.logback" % "logback-classic"                % "1.2.3",
@@ -24,9 +29,7 @@ lazy val root = (project in file("."))
       "org.scalameta" %% "munit-scalacheck"               % MunitVersion % Test
     ),
     testFrameworks += new TestFramework("munit.Framework"),
-    addCompilerPlugin(
-      "org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full
-    ),
+    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full),
     addCompilerPlugin(scalafixSemanticdb),
     addCommandAlias(
       "rmUnused",

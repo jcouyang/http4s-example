@@ -1,28 +1,23 @@
 package com.your.domain
 
-import io.circe.Encoder
 import cats.data._
 import cats.effect.IO
 import org.http4s.dsl._
-import org.http4s.circe._
-import org.http4s.EntityEncoder
+import fs2._
+import org.http4s.Request
+import org.http4s.Response
+import cats.arrow.FunctionK
 
 package object http4sexample {
-  object AppDsl extends Http4sDsl[App]
+  def routeApp(
+    pf: PartialFunction[Request[IO], App[Response[IO]]]
+  ): Kleisli[OptionT[IO, *], Request[IO], App[Response[IO]]] =
+    Kleisli { req =>
+      OptionT(IO(pf.lift(req)))
+    }
   type App[A] = Kleisli[IO, AppResource, A]
-
-  implicit def circeEntityEncoder[A: Encoder]: EntityEncoder[App, A] =
-    jsonEncoderOf[App, A]
-  // implicit def appEntityEncoder[A](encoder: EntityEncoder[IO, A]): EntityEncoder[App, A] = {
-  //   new EntityEncoder[App, A] {
-  //     override def toEntity(a: A): Entity[App] = {
-  //       val entity = encoder.toEntity(a)
-  //       new Entity{
-  //         val body = entity.body.co
-  //         val length = entity.length
-  //     }
-  //     }
-  //     override def headers: Headers = encoder.headers
-  //   }
-  // }
+  type StreamApp[A] = Kleisli[Stream[IO, *], AppResource, A]
+  object AppDsl extends Http4sDsl2[App, IO] {
+    val liftG: FunctionK[IO, App] = NT.IOtoApp
+  }
 }
