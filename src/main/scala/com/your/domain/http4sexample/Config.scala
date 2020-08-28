@@ -15,10 +15,7 @@ object Env extends Enum[Env] with CirisEnum[Env] {
 }
 import Env._
 
-case class Config(
-    env: Env,
-    jokeService: Uri
-)
+case class Config(env: Env, jokeService: Uri)
 
 object Config {
   val appEnv = env("APP_ENV").as[Env]
@@ -26,10 +23,7 @@ object Config {
   def all =
     appEnv.map {
       case Local =>
-        Config(
-          env = Local,
-          jokeService = Uri.uri("https://icanhazdadjoke.com")
-        )
+        Config(env = Local, jokeService = Uri.uri("https://icanhazdadjoke.com"))
       case PreProd => ???
       case Prod    => ???
     }

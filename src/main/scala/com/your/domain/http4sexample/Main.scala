@@ -14,7 +14,7 @@ object Main extends TwitterServer {
   implicit val ctx: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
   val port = flag("port", ":8080", "Service Port Number")
   val resource = AppResource.apply
-  def main() = {
+  def main() =
     resource.use { implicit deps =>
       val service: HttpRoutes[IO] =
         route.all
@@ -30,6 +30,5 @@ object Main extends TwitterServer {
         ()
       }
       IO(Await.ready(server))
-    }
-  }.unsafeRunSync
+    }.unsafeRunSync
 }

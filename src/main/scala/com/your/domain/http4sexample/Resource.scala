@@ -22,9 +22,7 @@ object AppResource {
       val config = cfg
       val jokeClient = js
     }
-  private def mkHttp4sClient(
-      uri: Uri
-  )(implicit ctx: ContextShift[IO]): Resource[IO, Client[IO]] = {
+  private def mkHttp4sClient(uri: Uri)(implicit ctx: ContextShift[IO]): Resource[IO, Client[IO]] =
     (uri.scheme, uri.host, uri.port) match {
       case (Some(Scheme.https), Some(host), None) =>
         Finagle.mkClient[IO](
@@ -46,9 +44,6 @@ object AppResource {
             .newService(s"$host:$port")
         )
       case _ =>
-        Resource.liftF(
-          IO.raiseError(new Exception(s"cannot initialize HttpClient for $uri"))
-        )
+        Resource.liftF(IO.raiseError(new Exception(s"cannot initialize HttpClient for $uri")))
     }
-  }
 }
