@@ -10,5 +10,6 @@ mkShell {
   buildInputs = [
     sbt
     coursier
+    docker
   ];
 }

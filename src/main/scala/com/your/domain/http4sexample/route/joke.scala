@@ -35,9 +35,6 @@ object Joke {
       def from(db: Dao.Joke) = View(db.id, db.text, ZonedDateTime.ofInstant(db.created, ZoneId.systemDefault()))
     }
   }
-  implicit val InstantDecoder: Decoder[Instant] =
-    decoder((index, row) => row.getTimestamp(index).toInstant())
-
   val CURD = AppRoute {
     case GET -> Root / "joke" =>
       Kleisli
