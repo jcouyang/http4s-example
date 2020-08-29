@@ -16,7 +16,7 @@ import doobie.implicits._
 
 object Joke {
   case class Joke(joke: String)
-  val random = routeApp {
+  val random = AppRoute {
     case GET -> Root / "random-joke" =>
       for {
         jokeClient <- Kleisli.ask[IO, HasClient].map(_.jokeClient)
@@ -38,7 +38,7 @@ object Joke {
   implicit val InstantDecoder: Decoder[Instant] =
     decoder((index, row) => row.getTimestamp(index).toInstant())
 
-  val CURD = routeApp {
+  val CURD = AppRoute {
     case GET -> Root / "joke" =>
       Kleisli
         .ask[IO, HasDatabase]
