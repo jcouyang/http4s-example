@@ -12,9 +12,8 @@ import org.http4s._
 object Main extends TwitterServer {
   implicit val ctx: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
   val port = flag("port", ":8080", "Service Port Number")
-  val resource = AppResource.apply
   def main() =
-    resource.use { implicit deps =>
+    resource.mk.use { implicit deps =>
       val service: HttpRoutes[IO] =
         route.all.mapF(resp => resp.flatMapF(_.run(deps).map(Some(_))))
       val server = Http.server
