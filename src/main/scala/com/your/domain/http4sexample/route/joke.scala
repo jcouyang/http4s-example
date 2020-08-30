@@ -12,8 +12,10 @@ import io.circe.generic.auto._
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.ZoneId
+import com.twitter.logging.Logger
 
 object Joke {
+  implicit val log = Logger.get
   case class Joke(joke: String)
   val random = AppRoute {
     case GET -> Root / "random-joke" =>
@@ -37,13 +39,14 @@ object Joke {
   val CRUD = AppRoute {
     case req @ POST -> Root / "joke" =>
       for {
-        db <- Kleisli.ask[IO, HasDatabase]
+        has <- Kleisli.ask[IO, HasDatabase with HasLogger]
         joke <- Kleisli.liftF(req.as[Repr.Create])
-        id <- db.transact(run(quote {
+        id <- has.transact(run(quote {
           query[Dao.Joke]
             .insert(_.text -> lift(joke.text))
             .returningGenerated(_.id)
         }))
+        _ <- has.logInfo(s"created joke with id $id")
         resp <- Created(id)
       } yield resp
 

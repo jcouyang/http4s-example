@@ -2,7 +2,7 @@ package com.your.domain.http4sexample
 
 import cats.effect._
 
-trait AppResource extends HasConfig with resource.HasClient with resource.HasDatabase
+trait AppResource extends HasConfig with resource.HasClient with resource.HasDatabase with resource.HasLogger
 
 package object resource {
   def mk(implicit ctx: ContextShift[IO]): Resource[IO, AppResource] =
