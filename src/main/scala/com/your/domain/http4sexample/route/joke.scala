@@ -64,11 +64,11 @@ object Joke {
       Kleisli
         .ask[IO, HasDatabase]
         .flatMap(_.transact(run(quote {
-                query[Dao.Joke].filter(_.id == lift(id)).take(1)
-              }))
-        ).flatMap{
-          case a:: Nil=> Ok(a)
-          case _ => NotFound(id)
+          query[Dao.Joke].filter(_.id == lift(id)).take(1)
+        })))
+        .flatMap {
+          case a :: Nil => Ok(a)
+          case _        => NotFound(id)
         }
 
     case req @ PUT -> Root / "joke" / IntVar(id) =>

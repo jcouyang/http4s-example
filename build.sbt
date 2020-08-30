@@ -40,7 +40,6 @@ lazy val root = (project in file("."))
     )
   )
 
-
 lazy val db = project
   .settings(
     name := "http4s-example-db-migration",
