@@ -35,7 +35,17 @@ object Joke {
       def from(db: Dao.Joke) = View(db.id, db.text, ZonedDateTime.ofInstant(db.created, ZoneId.systemDefault()))
     }
   }
-  val CURD = AppRoute {
+  val CRUD = AppRoute {
+    case req @ POST -> Root / "joke" =>
+      for {
+        db <- Kleisli.ask[IO, HasDatabase]
+        joke <- Kleisli.liftF(req.as[Repr.Create])
+        id <- db.transact(run(quote {
+          query[Dao.Joke].insert(_.text -> lift(joke.text))
+        }) >> sql"select lastval()".query[Int].unique)
+        resp <- Created(id)
+      } yield resp
+
     case GET -> Root / "joke" =>
       Kleisli
         .ask[IO, HasDatabase]
@@ -49,15 +59,16 @@ object Joke {
             )
         )
 
-    case req @ POST -> Root / "joke" =>
-      for {
-        db <- Kleisli.ask[IO, HasDatabase]
-        joke <- Kleisli.liftF(req.as[Repr.Create])
-        id <- db.transact(run(quote {
-          query[Dao.Joke].insert(_.text -> lift(joke.text))
-        }) >> sql"select lastval()".query[Int].unique)
-        resp <- Created(id)
-      } yield resp
+    case GET -> Root / "joke" / IntVar(id) =>
+      Kleisli
+        .ask[IO, HasDatabase]
+        .flatMap(_.transact(run(quote {
+                query[Dao.Joke].filter(_.id == lift(id)).take(1)
+              }))
+        ).flatMap{
+          case a:: Nil=> Ok(a)
+          case _ => NotFound(id)
+        }
 
     case req @ PUT -> Root / "joke" / IntVar(id) =>
       for {
