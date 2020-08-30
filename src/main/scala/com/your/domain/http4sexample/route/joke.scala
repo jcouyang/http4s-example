@@ -12,7 +12,6 @@ import io.circe.generic.auto._
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.ZoneId
-import doobie.implicits._
 
 object Joke {
   case class Joke(joke: String)
@@ -41,8 +40,10 @@ object Joke {
         db <- Kleisli.ask[IO, HasDatabase]
         joke <- Kleisli.liftF(req.as[Repr.Create])
         id <- db.transact(run(quote {
-          query[Dao.Joke].insert(_.text -> lift(joke.text))
-        }) >> sql"select lastval()".query[Int].unique)
+          query[Dao.Joke]
+            .insert(_.text -> lift(joke.text))
+            .returningGenerated(_.id)
+        }))
         resp <- Created(id)
       } yield resp
 
