@@ -21,3 +21,4 @@ project/plugins/project/
 .metals/
 http4s-example
 .idea
+http4s-example-db-migration
