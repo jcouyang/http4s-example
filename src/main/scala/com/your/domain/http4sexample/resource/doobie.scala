@@ -20,6 +20,7 @@ trait HasDatabase {
 }
 
 class MyDatabaseContext extends DoobieContext.Postgres(SnakeCase)
+
 object database {
   val context = new MyDatabaseContext {
     implicit val InstantDecoder: Decoder[Instant] =
@@ -27,15 +28,10 @@ object database {
   }
   def transactor(implicit ctx: ContextShift[IO]): Resource[IO, HikariTransactor[IO]] =
     for {
+      db <- Resource.liftF(Config.database.load[IO])
       ce <- ExecutionContexts.fixedThreadPool[IO](32)
       be <- Blocker[IO]
-      xa <- HikariTransactor.newHikariTransactor[IO](
-        "org.postgresql.Driver",
-        "jdbc:postgresql:joke",
-        "postgres",
-        "",
-        ce,
-        be
-      )
+      xa <-
+        HikariTransactor.newHikariTransactor[IO]("org.postgresql.Driver", db.jdbc, db.user.value, db.pass.value, ce, be)
     } yield xa
 }

@@ -24,7 +24,7 @@ class JokeSpec extends FunSuite with ScalaCheckSuite {
   val appResource = mock[AppResource]
   val router = route.all.mapF(resp => resp.flatMapF(_.run(appResource).map(Some(_)))).orNotFound
   property("Create") {
-    forAll { (requestBody: Joke.Repr.Create) =>
+    forAll { (requestBody: joke.Repr.Create) =>
       when(appResource.transact(any[ConnectionIO[Int]]))
         .thenReturn(Kleisli.pure(1))
       val req = POST(requestBody.asJson, uri("http://localhost/joke")).unsafeRunSync()

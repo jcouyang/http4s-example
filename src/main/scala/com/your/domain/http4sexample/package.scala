@@ -10,9 +10,8 @@ import cats.arrow.FunctionK
 
 package object http4sexample {
   type App[A] = Kleisli[IO, AppResource, A]
-  def AppRoute(
-    pf: PartialFunction[Request[IO], App[Response[IO]]]
-  ): Kleisli[OptionT[IO, *], Request[IO], App[Response[IO]]] =
+  type AppRoute = Kleisli[OptionT[IO, *], Request[IO], App[Response[IO]]]
+  def AppRoute(pf: PartialFunction[Request[IO], App[Response[IO]]]): AppRoute =
     Kleisli { req =>
       OptionT(IO(pf.lift(req)))
     }
