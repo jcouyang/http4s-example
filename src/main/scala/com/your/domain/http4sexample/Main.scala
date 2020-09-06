@@ -9,29 +9,17 @@ import org.http4s.finagle.Finagle
 import org.http4s.implicits._
 import zipkin2.finagle.http.HttpZipkinTracer
 import org.http4s.HttpRoutes
+import cats.data.OptionT
 
 object Main extends TwitterServer {
   implicit val ctx: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
   val port = flag("port", ":8080", "Service Port Number")
-  val options = cats.effect.tracing.PrintingOptions.Default
-    .withShowFullStackTraces(true)
-    .withMaxStackTraceLines(8)
   def main() =
     resource.mk
       .use { (deps: Resource[IO, AppResource]) =>
-        val service: HttpRoutes[IO] = route.all.mapF(
+        val service: HttpRoutes[IO] = route.all.flatMapF(
           resp =>
-            resp.flatMapF(
-              app =>
-                deps.use { r =>
-                  for {
-                    res <- app.run(r)
-                    trace <- IO.trace
-                    _ <- trace.printFiberTrace(options)
-                  } yield Some(res)
-
-                }
-            )
+           OptionT.liftF( deps.use { r => resp.run(r) })
         )
         val server = Http.server
           .withTracer(new HttpZipkinTracer)

@@ -18,16 +18,13 @@ import resource.logger._
 object joke {
   implicit val log = Logger.get()
   case class DadJoke(id: String, joke: String)
-  val dadJokeApp = for {
-    _ <- log.infoF("getting dad joke...")
-    jokeClient <- Kleisli.ask[IO, HasClient].map(_.jokeClient)
-    joke <- Kleisli.liftF(jokeClient.expect[DadJoke]("/"))
-  } yield joke
+  val dadJokeApp = log.infoF("getting dad joke...") *>
+    Kleisli.ask[IO, HasClient].flatMapF(_.jokeClient.expect[DadJoke]("/"))
 
   val random = AppRoute {
     case GET -> Root / "random-joke" =>
       log.infoF("generating random joke") *>
-        dadJokeApp.flatMap(Ok(_))
+      dadJokeApp.flatMap(Ok(_))
   }
 
   object Dao {
@@ -55,7 +52,7 @@ object joke {
       } yield resp
 
     case GET -> Root / "joke" =>
-      Kleisli
+        Kleisli
         .ask[IO, HasDatabase]
         .flatMap(
           db =>
@@ -69,22 +66,22 @@ object joke {
 
     case GET -> Root / "joke" / IntVar(id) =>
       log.infoF(s"getting joke $id") *>
-        Kleisli
-          .ask[IO, HasDatabase]
-          .flatMap(_.transact(run(quote {
-            query[Dao.Joke].filter(_.id == lift(id)).take(1)
-          })))
-          .flatMap {
-            case a :: Nil => Ok(a)
-            case _ =>
-              log.infoF(s"cannot find joke $id") *>
-                Kleisli.ask[IO, HasToggle].flatMap { has =>
-                  if (has.toggleOn("com.your.domain.http4sexample.useDadJoke"))
-                    dadJokeApp.flatMap(NotFound(_))
-                  else
-                    NotFound(id)
-                }
-          }
+      Kleisli
+        .ask[IO, HasDatabase]
+        .flatMap(_.transact(run(quote {
+          query[Dao.Joke].filter(_.id == lift(id)).take(1)
+        })))
+        .flatMap {
+          case a :: Nil => Ok(a)
+          case _        =>
+            log.infoF(s"cannot find joke $id") *>
+            Kleisli.ask[IO, HasToggle].flatMap{ has=>
+              if( has.toggleOn("com.your.domain.http4sexample.useDadJoke"))
+                dadJokeApp.flatMap(NotFound(_))
+              else
+              NotFound(id)
+            }
+        }
 
     case req @ PUT -> Root / "joke" / IntVar(id) =>
       for {

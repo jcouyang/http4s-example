@@ -26,7 +26,6 @@ lazy val root = (project in file("."))
       "com.twitter"                %% "twitter-server"                 % TwitterVersion,
       "com.twitter"                %% "twitter-server-logback-classic" % TwitterVersion,
       "ch.qos.logback"              % "logback-classic"                % "1.2.3",
-      "org.typelevel"              %% "cats-effect"                    % "2.2.0-RC3",
       "io.zipkin.finagle2"         %% "zipkin-finagle-http"            % "2.2.1",
       "org.scalameta"              %% "munit"                          % MunitVersion % Test,
       "org.scalameta"              %% "munit-scalacheck"               % MunitVersion % Test,
@@ -42,17 +41,3 @@ lazy val root = (project in file("."))
       """set scalacOptions -= "-Xfatal-warnings";scalafix RemoveUnused;set scalacOptions += "-Xfatal-warnings""""
     )
   )
-
-lazy val db = project
-  .settings(
-    name := "http4s-example-db-migration",
-    libraryDependencies ++= Seq(
-      "org.flywaydb"  % "flyway-core"     % "6.5.5",
-      "org.tpolecat" %% "doobie-core"     % DoobieVersion,
-      "org.tpolecat" %% "doobie-postgres" % DoobieVersion
-    ),
-    flywayUrl := s"jdbc:postgresql:joke",
-    flywayUser := "postgres",
-    flywayPassword := ""
-  )
-  .enablePlugins(FlywayPlugin)
