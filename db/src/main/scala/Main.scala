@@ -5,20 +5,18 @@ import scala.util.Properties._
 
 object Main extends IOApp {
   def run(args: List[String]): IO[ExitCode] = {
-    val flyway = Flyway.configure.dataSource(s"jdbc:postgresql://${envOrElse("DB_HOST", "localhost")}:${envOrElse("DB_PORT", "5432")}/${envOrElse("DB_NAME", "joke")}",
-      envOrElse("DB_USER", "postgres"), envOrElse("DB_PASS", ""))
+    val flyway = Flyway.configure.dataSource(
+      s"jdbc:postgresql://${envOrElse("DB_HOST", "localhost")}:${envOrElse("DB_PORT", "5432")}/${envOrElse("DB_NAME", "joke")}",
+      envOrElse("DB_USER", "postgres"),
+      envOrElse("DB_PASS", ""),
+    )
     args match {
       case List("migrate") =>
-        IO(
-          flyway.load.migrate()
-        ).as(ExitCode.Success)
+        IO(flyway.load.migrate()).as(ExitCode.Success)
       case List("clean") =>
-        IO(
-          flyway.load.clean()
-        ).as(ExitCode.Success)
+        IO(flyway.load.clean()).as(ExitCode.Success)
       case a =>
-        IO(System.err.println(
-         s"""|Unknown args $a
+        IO(System.err.println(s"""|Unknown args $a
              |Usage:
              |  sbt "db/run migrate|clean"                 migrate local
              |  env DB_HOST=<host> DB_PORT=<port> \\

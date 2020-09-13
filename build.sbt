@@ -25,6 +25,7 @@ lazy val root = (project in file("."))
       "org.tpolecat"               %% "doobie-postgres"                % DoobieVersion,
       "org.tpolecat"               %% "doobie-quill"                   % DoobieVersion,
       "org.tpolecat"               %% "doobie-hikari"                  % DoobieVersion,
+      "org.typelevel"              %% "cats-mtl"                       % "1.0.0",
       "com.twitter"                %% "twitter-server"                 % TwitterVersion,
       "com.twitter"                %% "twitter-server-logback-classic" % TwitterVersion,
       "ch.qos.logback"              % "logback-classic"                % "1.2.3",
@@ -40,5 +41,15 @@ lazy val root = (project in file("."))
     addCommandAlias(
       "rmUnused",
       """set scalacOptions -= "-Xfatal-warnings";scalafix RemoveUnused;set scalacOptions += "-Xfatal-warnings"""",
+    ),
+  )
+
+lazy val db = project
+  .settings(
+    name := "http4s-example-db-migration",
+    libraryDependencies ++= Seq(
+      "org.flywaydb"  % "flyway-core"     % "6.5.5",
+      "org.tpolecat" %% "doobie-core"     % DoobieVersion,
+      "org.tpolecat" %% "doobie-postgres" % DoobieVersion,
     ),
   )

@@ -2,7 +2,7 @@ package db
 package migration
 import doobie.implicits._
 
-class V1_0__CreateJokeTable  extends DoobieMigration {
+class V1_0__CreateJokeTable extends DoobieMigration {
   override def migrate =
     sql"""create table joke (
           	id serial not null

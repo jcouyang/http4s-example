@@ -11,6 +11,7 @@ trait AppResource
     with resource.HasDatabase
     with resource.HasToggle
     with resource.HasTracer
+    with resource.HasLogger
 
 package object resource {
   def mk(implicit ctx: ContextShift[IO]): Resource[IO, Resource[IO, AppResource]] =
@@ -18,7 +19,7 @@ package object resource {
       cfg <- Resource.liftF(Config.all.load[IO])
       js <- http.mk(cfg.jokeService)
       db <- database.transactor
-    } yield Resource.liftF(IO {
+    } yield Resource.make(IO {
       new AppResource {
         val config = cfg
         val jokeClient = js
@@ -26,5 +27,7 @@ package object resource {
         val toggleMap = StandardToggleMap("com.your.domain.http4sexample", DefaultStatsReceiver)
         val tracer = Trace.id
       }
-    })
+    }) { res =>
+      res.logEval
+    }
 }

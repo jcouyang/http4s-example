@@ -8,7 +8,7 @@
          support ANSI color codes by default. -->
     <withJansi>true</withJansi>
     <encoder>
-      <pattern>{traceId=%X{traceId}, thread=%thread} %highlight(%-5level) %cyan(%logger{15}) - %msg %n</pattern>
+      <pattern>[%X{trace.id} %thread] %highlight(%-5level) %cyan(%logger{15}) - %msg %n</pattern>
     </encoder>
   </appender>
   <root level="${LOG_LEVEL}">
