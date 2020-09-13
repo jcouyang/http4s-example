@@ -1,9 +1,6 @@
 package com.your.domain.http4sexample
 
 import cats.effect._
-import com.twitter.finagle.stats.DefaultStatsReceiver
-import com.twitter.finagle.toggle.StandardToggleMap
-import com.twitter.finagle.tracing.Trace
 
 trait AppResource
     extends HasConfig
@@ -24,8 +21,6 @@ package object resource {
         val config = cfg
         val jokeClient = js
         val database = db
-        val toggleMap = StandardToggleMap("com.your.domain.http4sexample", DefaultStatsReceiver)
-        val tracer = Trace.id
       }
     }) { res =>
       res.logEval
