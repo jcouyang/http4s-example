@@ -6,7 +6,6 @@ import cats.effect.IO
 import cats.syntax.all._
 import com.twitter.logging.Logger
 import cats.data.Kleisli
-// import cats.effect.Resource
 
 object logger {
   implicit class LoggerSyntax(l: Logger) {
@@ -15,5 +14,4 @@ object logger {
         IO(l.info(has.tracer.toString ++ text.show))
       }
   }
-  // def mk: Resource[IO, MonadState[IO, Chain[Lazy[Unit]]]] = Resource.make()
 }
