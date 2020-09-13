@@ -14,6 +14,8 @@ import java.time.ZonedDateTime
 import java.time.ZoneId
 import com.twitter.logging.Logger
 import resource.logger._
+import scala.concurrent.ExecutionContext
+import io.circe.literal._
 
 object joke {
   implicit val log = Logger.get()
@@ -24,7 +26,7 @@ object joke {
   val random = AppRoute {
     case GET -> Root / "random-joke" =>
       log.infoF("generating random joke") *>
-      dadJokeApp.flatMap(Ok(_))
+        dadJokeApp.flatMap(Ok(_))
   }
 
   object Dao {
@@ -48,11 +50,11 @@ object joke {
             .returningGenerated(_.id)
         }))
         _ <- log.infoF(s"created joke with id $id")
-        resp <- Created(id)
+        resp <- Created(json"""{"id": $id}""")
       } yield resp
 
     case GET -> Root / "joke" =>
-        Kleisli
+      Kleisli
         .ask[IO, HasDatabase]
         .flatMap(
           db =>
@@ -65,30 +67,33 @@ object joke {
         )
 
     case GET -> Root / "joke" / IntVar(id) =>
-      log.infoF(s"getting joke $id") *>
-      Kleisli
-        .ask[IO, HasDatabase]
-        .flatMap(_.transact(run(quote {
+      for {
+        has <-
+          Kleisli
+            .ask[IO, HasDatabase with HasToggle]
+
+        joke <- log.infoF(s"getting joke $id") *> Kleisli.liftF(
+          IO.shift(IO.contextShift(ExecutionContext.global))
+        ) *> has.transact(run(quote {
           query[Dao.Joke].filter(_.id == lift(id)).take(1)
-        })))
-        .flatMap {
+        }))
+        dadJoke =
+          if (has.toggleOn("com.your.domain.http4sexample.useDadJoke"))
+            log.infoF(s"cannot find joke $id") *> dadJokeApp.flatMap(NotFound(_))
+          else
+            NotFound(id)
+        resp <- joke match {
           case a :: Nil => Ok(a)
-          case _        =>
-            log.infoF(s"cannot find joke $id") *>
-            Kleisli.ask[IO, HasToggle].flatMap{ has=>
-              if( has.toggleOn("com.your.domain.http4sexample.useDadJoke"))
-                dadJokeApp.flatMap(NotFound(_))
-              else
-              NotFound(id)
-            }
+          case _        => dadJoke
         }
+      } yield resp
 
     case req @ PUT -> Root / "joke" / IntVar(id) =>
       for {
         db <- Kleisli.ask[IO, HasDatabase]
         joke <- Kleisli.liftF(req.as[Repr.Create])
         _ <- db.transact(run(quote {
-          query[Dao.Joke].update(_.id -> lift(id), _.text -> lift(joke.text))
+          query[Dao.Joke].filter(_.id == lift(id)).update(_.text -> lift(joke.text))
         }))
         resp <- NoContent()
       } yield resp

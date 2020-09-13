@@ -17,10 +17,7 @@ object Main extends TwitterServer {
   def main() =
     resource.mk
       .use { (deps: Resource[IO, AppResource]) =>
-        val service: HttpRoutes[IO] = route.all.flatMapF(
-          resp =>
-           OptionT.liftF( deps.use { r => resp.run(r) })
-        )
+        val service: HttpRoutes[IO] = route.all.flatMapF(resp => OptionT.liftF(deps.use(r => resp.run(r))))
         val server = Http.server
           .withTracer(new HttpZipkinTracer)
           .withLabel("http4s-example")

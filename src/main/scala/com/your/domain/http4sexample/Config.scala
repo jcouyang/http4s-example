@@ -4,7 +4,7 @@ import org.http4s.Uri
 import enumeratum._
 import io.circe.Encoder
 import org.http4s.EntityEncoder
-import org.http4s.circe.CirceEntityEncoder
+import org.http4s.circe._
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.semiauto._
@@ -44,11 +44,10 @@ object Config {
       env("DB_PORT").as[Int].default(5432),
       env("DB_NAME").default("joke"),
       env("DB_USER").default("postgres").secret,
-      env("DB_PASS").default("").secret
+      env("DB_PASS").default("").secret,
     ).mapN(DataBaseConfig.apply)
-  implicit val uriEncoder: Encoder[Uri] = Encoder.encodeString.contramap(_.toString)
   implicit val configEncoder: Encoder[Config] = deriveEncoder[Config]
-  implicit val configEntityEncoder: EntityEncoder[IO, Config] = CirceEntityEncoder.circeEntityEncoder[IO, Config]
+  implicit val configEntityEncoder: EntityEncoder[IO, Config] = jsonEncoderOf[IO, Config]
 }
 
 trait HasConfig {

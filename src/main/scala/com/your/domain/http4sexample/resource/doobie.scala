@@ -9,14 +9,13 @@ import doobie.quill.DoobieContext
 import doobie.implicits._
 import fs2._
 import java.time.Instant
-import scala.concurrent.ExecutionContext
 
 trait HasDatabase {
+
   val database: Transactor[IO]
-  implicit val contextShift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
   def transact[A](c: ConnectionIO[A]): App[A] =
-    NT.IOtoApp(IO.shift *> c.transact(database))
+    NT.IOtoApp(c.transact(database))
 
   def transact[A](c: Stream[ConnectionIO, A]): Stream[IO, A] =
     c.transact(database)

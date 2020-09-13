@@ -2,41 +2,76 @@ package com.your.domain.http4sexample
 package route
 import munit._
 import org.scalacheck.Prop._
-// import cats.effect.IO
 import org.http4s.Uri._
 import org.http4s.dsl.io._
 import org.http4s.client.dsl.io._
 import org.http4s.implicits._
 import org.http4s.circe.CirceEntityCodec._
-import doobie._
 import org.mockito.MockitoSugar._
-import org.mockito.ArgumentMatchersSugar._
-import cats.data.Kleisli
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.scalacheck.ScalacheckShapeless._
-// import org.scalacheck.Arbitrary.arbitrary
 import io.circe.literal._
 import io.circe._
+import cats.effect._
+import scala.concurrent.ExecutionContext
+import org.http4s.client.Client
+import com.twitter.finagle.tracing.Trace
+import doobie.util.ExecutionContexts
+import doobie.util.transactor.Transactor
+import cats.data.OptionT
+import com.twitter.finagle.toggle._
 
 class JokeSpec extends FunSuite with ScalaCheckSuite {
-  // val b = run(quote{query[Dao.Joke]})
-  val appResource = mock[AppResource]
-  val router = route.all.mapF(resp => resp.flatMapF(_.run(appResource).map(Some(_)))).orNotFound
-  property("Create") {
-    forAll { (requestBody: joke.Repr.Create) =>
-      when(appResource.transact(any[ConnectionIO[Int]]))
-        .thenReturn(Kleisli.pure(1))
-      val req = POST(requestBody.asJson, uri("http://localhost/joke")).unsafeRunSync()
-      val resp = router(req).unsafeRunSync()
+  implicit val ctx: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+  val mockToggleMap = mock[ToggleMap]
+  val testAppResource =
+    for {
+      cfg <- Resource.liftF(Config.all.load[IO])
+    } yield (new AppResource {
+      val config = cfg
+      val jokeClient = mock[Client[IO]]
+      val database = Transactor.fromDriverManager[IO](
+        "org.postgresql.Driver",
+        cfg.database.jdbc,
+        cfg.database.user.value,
+        cfg.database.pass.value,
+        Blocker.liftExecutionContext(ExecutionContexts.synchronous),
+      )
+      val tracer = Trace.id
+      val toggleMap = mockToggleMap
 
-      assertEquals(resp.as[Json].unsafeRunSync(), json"1")
+    })
+
+  val router = route.all.flatMapF(resp => OptionT.liftF(testAppResource.use(r => resp.run(r)))).orNotFound
+  def update(id: String, req: joke.Repr.Create) =
+    router(PUT(req.asJson, uri("http://localhost/joke") / id).unsafeRunSync())
+
+  def query(id: String) = router(GET(uri("http://localhost/joke") / id).unsafeRunSync())
+  private def create(req: joke.Repr.Create) =
+    for {
+      reqCreate <- POST(req.asJson, uri("http://localhost/joke"))
+      created <- router(reqCreate)
+      id <- created.as[Json].map(_.hcursor.get[Int]("id"))
+    } yield id.getOrElse(-1).toString
+
+  private def delete(id: String) =
+    router(DELETE(uri("http://localhost/joke") / id).unsafeRunSync())
+      .map(_ => assertEquals(query(id).unsafeRunSync().status, NotFound))
+
+  def createAndDelete(req: joke.Repr.Create) = Resource.make[IO, String](create(req))(delete)
+
+  property("CRUD") {
+    forAll { (requestBody: joke.Repr.Create, updateBody: joke.Repr.Create) =>
+      when(mockToggleMap.apply("com.your.domain.http4sexample.useDadJoke"))
+        .thenReturn(Toggle.off("com.your.domain.http4sexample.useDadJoke"))
+      createAndDelete(requestBody)
+        .use { id =>
+          assertEquals(query(id).flatMap(_.as[joke.Repr.View]).unsafeRunSync().text, requestBody.text)
+          update(id, updateBody)
+            .map(_ => assertEquals(query(id).flatMap(_.as[joke.Repr.View]).unsafeRunSync().text, updateBody.text))
+        }
+        .unsafeRunSync()
     }
   }
-
-  // test("Delete") {
-  //   val obtained = 42
-  //   val expected = 43
-  //   assertEquals(obtained, expected)
-  // }
 }
