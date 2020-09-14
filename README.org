@@ -1,0 +1,221 @@
+* Get Started with Http4s[fn:2]
+
+This guide covers getting up and running a production ready http4s example.
+
+After reader this guide, you will know:
+- How to install Http4s, create a new Http4s application, and connect your application to a database.
+- The general layout of a Http4s application.
+- The basic principles of FP design.
+- How to quickly generate the starting pieces of a Http4s application.
+- How to package and deploy a Http4s application
+- How to monitor a Http4s application
+
+** Prerequisites
+- Nix ~sh <(curl -L https://nixos.org/nix/install)~[fn:1]
+
+** Verify your environment
+
+Start server
+#+begin_src shell
+$ nix-shell
+> sbt ~reStart
+#+end_src
+#+begin_quote
+Let us assume all future prefix of =>= represent for command in =nix-shell=, and =$= for =bash=.
+#+end_quote
+
+You should able to see a empty list =[]= since there is nothing in database yet.
+#+begin_src shell
+curl localhost:8080/joke
+#+end_src
+
+To run test simply
+#+begin_src shell
+> sbt test
+#+end_src
+
+Now you have a proven working environment for the service to test and run, let us see how we build it.
+
+** Creating a new Joke Application
+
+#+begin_example
+sbt new jcouyang/http4s.g8
+#+end_example
+
+You can either answer all those question that it prompt or press =Enter= all the way to the end.
+
+*** file structure
+
+| File/Folder        | Purpose                                                        |
+|--------------------+----------------------------------------------------------------|
+| .github            | folder of github workflow etc.                                 |
+| .scalafmt.conf     | Specification of how to format Scala source code               |
+| build.sbt          | Specify build tasks and Scala library dependencies             |
+| db                 | Database migrations                                            |
+| docker-compose.yml | Definition of how to boot local services like zipkin, postgres |
+| project            | sbt plugins                                                    |
+| shell.nix          | Nix shell configuration                                        |
+| src                | Scala source                                                   |
+| target             | Compiled target                                                |
+
+*** source structure
+#+begin_src shell
+> tree src
+src
+├── main
+│   ├── resources
+│   │   ├── com
+│   │   │   └── twitter
+│   │   │       └── toggles
+│   │   │           └── configs
+│   │   │               └── com.your.domain.http4sexample.json
+│   │   └── logback.xml
+│   └── scala
+│       └── com
+│           └── your
+│               └── domain
+│                   └── http4sexample
+│                       ├── Config.scala
+│                       ├── Main.scala
+│                       ├── NatureTransfomation.scala
+│                       ├── package.scala
+│                       ├── resource
+│                       │   ├── database.scala
+│                       │   ├── http.scala
+│                       │   ├── logger.scala
+│                       │   ├── package.scala
+│                       │   ├── toggle.scala
+│                       │   └── trace.scala
+│                       └── route
+│                           ├── config.scala
+│                           ├── joke.scala
+│                           └── package.scala
+└── test
+    └── scala
+        └── com
+            └── your
+                └── domain
+                    └── http4sexample
+                        ├── SpecHelper.scala
+                        └── route
+                            └── JokeSpec.scala
+#+end_src
+
+| File/Folder                        | Purpose                                                     |
+|------------------------------------+-------------------------------------------------------------|
+| com.your.domain.http4sexample.json | feature toggles                                             |
+| logback.xml                        | log config                                                  |
+| Config.scala                       | Application Config as code                                  |
+| Main.scala                         | The entry point of the program                              |
+| NatureTransfomation.scala          | A helper for kind to kind transformation                    |
+| package.scala                      | index of common types and function across whole application |
+| resource/database.scala            | Database resource, transactor, helper methods etc           |
+| resource/http.scala                | Http Client resource                                        |
+| resource/package.scala             | index of all resources                                      |
+| resource/toggle.scala              | Resource of feature toggles                                 |
+| resource/trace.scala               | Resource of zipkin tracing                                  |
+| route/config.scala                 | API route of ~/config~ endpoint                             |
+| route/joke.scala                   | API route of ~/joke~ endpoint                               |
+| route/package.scala                | Index of all APIs                                           |
+| SpecHelper.scala                   | Common helper methods for test like database connection     |
+| route/JokeSpec.scala               | Test Specification of route ~/joke~                         |
+
+** Data migration
+
+Before we start to build the joke service, what we need is a database table,
+to store the detail of jokes.
+
+You might ask, where is our local DB?
+
+The Postgres DB is defined in =docker-compose.yml= for local development
+#+begin_src yaml
+  db:
+    image: postgres:10
+    environment:
+      - POSTGRES_DB=joke
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    ports:
+      - 5432:5432
+#+end_src
+Where =POSTGRES_DB=joke= will help creating the database and name it =joke=.
+
+You don't need to run DB migration manually most of the time, since nix-shell hook will run it for you.
+
+Every time you enter =nix-shell=, you will see the migration log:
+#+begin_example
+nix-shell
+Creating network "http4s-example_default" with the default driver
+Creating http4s-example_zipkin_1 ... done
+Creating http4s-example_db_1     ... done
+[info] welcome to sbt 1.3.13 (Azul Systems, Inc. Java 1.8.0_202)
+[info] loading settings for project http4s-example-build from plugins.sbt,metals.sbt ...
+[info] loading project definition from /Users/jichao.ouyang/Develop/http4s-example/project
+[info] loading settings for project root from build.sbt ...
+[info] set current project to http4s-example (in build file:/Users/jichao.ouyang/Develop/http4s-example/)
+[info] running Main migrate
+Sep 14, 2020 12:14:15 PM org.flywaydb.core.internal.license.VersionPrinter printVersionOnly
+INFO: Flyway Community Edition 6.5.5 by Redgate
+Sep 14, 2020 12:14:15 PM org.flywaydb.core.internal.database.DatabaseFactory createDatabase
+INFO: Database: jdbc:postgresql://localhost:5432/joke (PostgreSQL 10.14)
+Sep 14, 2020 12:14:15 PM org.flywaydb.core.internal.command.DbValidate validate
+INFO: Successfully validated 1 migration (execution time 00:00.015s)
+Sep 14, 2020 12:14:15 PM org.flywaydb.core.internal.schemahistory.JdbcTableSchemaHistory create
+INFO: Creating Schema History table "public"."flyway_schema_history" ...
+Sep 14, 2020 12:14:15 PM org.flywaydb.core.internal.command.DbMigrate migrateGroup
+INFO: Current version of schema "public": << Empty Schema >>
+Sep 14, 2020 12:14:15 PM org.flywaydb.core.internal.command.DbMigrate doMigrateGroup
+INFO: Migrating schema "public" to version 1.0 - CreateJokeTable
+#+end_example
+
+To migrate when schema changed:
+#+begin_example
+> sbt "db/run migration"
+#+end_example
+
+Migration file located in =db/src/main/scala/db/migration=
+#+begin_example
+$ tree db/src
+db/src
+└── main
+    └── scala
+        ├── DoobieMigration.scala
+        ├── Main.scala
+        └── db
+            └── migration
+                └── V1_0__CreateJokeTable.scala
+#+end_example
+
+A migration file is actually a Scala [[https://tpolecat.github.io/doobie/][doobie]] source code.
+#+begin_src scala
+class V1_0__CreateJokeTable extends DoobieMigration {
+  override def migrate =
+    sql"""create table joke (
+          	id serial not null
+          		constraint joke_pk
+          		primary key,
+          	text text not null,
+          	created timestamptz default now() not null
+          )""".update.run
+}
+#+end_src
+
+The prefix =V1_0__= in class name means version 1.0, detail of naming convention please refer to [[https://flywaydb.org/documentation/migrations#java-based-migrations][Flyway]]
+
+** TODO Create RESTul APIs
+*** =POST /joke=
+
+*** =GET /joke/:id=
+
+*** =GET /joke=
+
+** TODO Feature Toggle
+
+** TODO Tracing Metrics and Logging
+
+** TODO Package and deploy
+
+* Footnotes
+
+[fn:2] follow the structure of [[https://guides.rubyonrails.org/getting_started.html][Getting Started with Rails]]
+
+[fn:1] If you're using macOS Catalina follow https://nixos.org/manual/nix/stable/#sect-macos-installation 
