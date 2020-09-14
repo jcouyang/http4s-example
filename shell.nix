@@ -1,15 +1,14 @@
 with import <nixpkgs> {};
 mkShell {
   shellHook = ''
-              echo "usage:"
-              echo "  sbt ~reStart       start server at port 8080(default)"
-              echo "  sbt testQuick      run test"
-              echo "  sbt rmUnused       remove unused imports"
-              echo "  sbt bootstrap      create a runnable binary"
+            source ops/bin/deps-up
+            sbt 'db/run migrate'
+            cat ops/sbt-usage.txt
             '';
   buildInputs = [
     sbt
     coursier
     docker
+    docker-compose
   ];
 }
