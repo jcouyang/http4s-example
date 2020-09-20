@@ -11,35 +11,36 @@ After reader this guide, you will know:
 - How to monitor a Http4s application
 
 ** Prerequisites
-- Nix ~sh <(curl -L https://nixos.org/nix/install)~[fn:1]
+- Nix ~sh <(curl -L https://nixos.org/nix/install)~ [fn:1]
 
 ** Verify your environment
 
 Start server
-#+begin_src shell
+#+begin_example
 $ nix-shell
 > sbt ~reStart
-#+end_src
+#+end_example
+
 #+begin_quote
 Let us assume all future prefix of =>= represent for command in =nix-shell=, and =$= for =bash=.
 #+end_quote
 
 You should able to see a empty list =[]= since there is nothing in database yet.
-#+begin_src shell
-curl localhost:8080/joke
-#+end_src
+#+begin_example
+$ curl localhost:8080/joke
+#+end_example
 
 To run test simply
-#+begin_src shell
+#+begin_example
 > sbt test
-#+end_src
+#+end_example
 
 Now you have a proven working environment for the service to test and run, let us see how we build it.
 
 ** Creating a new Joke Application
 
 #+begin_example
-sbt new jcouyang/http4s.g8
+$ sbt new jcouyang/http4s.g8
 #+end_example
 
 You can either answer all those question that it prompt or press =Enter= all the way to the end.
@@ -59,8 +60,8 @@ You can either answer all those question that it prompt or press =Enter= all the
 | target             | Compiled target                                                |
 
 *** source structure
-#+begin_src shell
-> tree src
+#+begin_example
+$ tree src
 src
 ├── main
 │   ├── resources
@@ -99,7 +100,7 @@ src
                         ├── SpecHelper.scala
                         └── route
                             └── JokeSpec.scala
-#+end_src
+#+end_example
 
 | File/Folder                        | Purpose                                                     |
 |------------------------------------+-------------------------------------------------------------|
@@ -201,20 +202,227 @@ class V1_0__CreateJokeTable extends DoobieMigration {
 
 The prefix =V1_0__= in class name means version 1.0, detail of naming convention please refer to [[https://flywaydb.org/documentation/migrations#java-based-migrations][Flyway]]
 
-** TODO Create RESTul APIs
-*** =POST /joke=
+Now we have database scheme set, next we need a API to save data into the new table.
 
-*** =GET /joke/:id=
+** Save a joke =POST /joke=
+To be to able to save data, a database library such as [[https://tpolecat.github.io/doobie/][Doobie]] or [[https://getquill.io/][Quill]] is required.
 
-*** =GET /joke=
+The following example uses Quill:
+#+begin_src scala -n
+val CRUD = AppRoute {                               // <- (ref:route)
+    case req @ POST -> Root / "joke" =>
+      for {
+        has <- Kleisli.ask[IO, HasDatabase]         // <- (ref:kleisli)
+        joke <- Kleisli.liftF(req.as[Repr.Create])  // <- (ref:reqbody)
+        id <- has.transact(run(quote {              // <- (ref:quill)
+          query[Dao.Joke]
+            .insert(_.text -> lift(joke.text))
+            .returningGenerated(_.id)
+        }))
+        _ <- log.infoF(s"created joke with id $id")
+        resp <- Created(json"""{"id": $id}""")
+      } yield resp
+}
+#+end_src
+0. [[(route)][=AppRoute=]] is simply a wrapper of Http4s' =HttpRoutes.of[IO]= but dependencies injectable.
+1. [[(kleisli)][=Kleisli.ask=]] is something like =@Inject= in Java world except everything is lazy, when you =ask[IO, HasDatabase]=, it will =<-= a instance =has= of =HasDatabase= type [fn:4]
+2. We also need to read the body from the req using Http4s DSL [[(reqbody)][=req.as[Repr.Create]=]] will parse the body and return a =IO[Repr.Create]=.
+   We need to =liftF= because the for comprehension is type =Kleisli[IO, HasXYZ, Response[IO]]=.
+3. =has= has type =HasDatabase=, which means it has database =transact= method, when =run= convert Quill's =quote= into =ConnectionIO[A]=, =transact=
+   can execute it in one transaction.
 
-** TODO Feature Toggle
+#+begin_quote
+It is pretty cool that Quill will translate the DSL directly into SQL at compile time:
 
-** TODO Tracing Metrics and Logging
+[[https://www.evernote.com/l/ABeuNCR1bIpMa4xqHKyccGy5mbbxVrzlj2AB/image.png]]
+#+end_quote
 
+If you're not fan of Macro it is very easy to switch back to doobie DSL:
+#+begin_src scala -n
+  val CRUD = AppRoute {
+      case req @ POST -> Root / "joke" =>
+        for {
+          has <- Kleisli.ask[IO, HasDatabase]
+          joke <- Kleisli.liftF(req.as[Repr.Create])
+          id <- has.transact(
+            sql"insert into joke (text) values ${joke.text}".update.withUniqueGeneratedKeys("id")) // <- (ref:doobie)
+          _ <- log.infoF(s"created joke with id $id")
+          resp <- Created(json"""{"id": $id}""")
+        } yield resp
+  }
+#+end_src
+
+** Stream some jokes =GET /joke=
+Similarly you will probably figure out how to implement a =GET /joke= endpoint already.
+
+But we has some killer feature in Http4s, we can stream the list of jokes direct from DB to response body.
+Which means you don't actually need to read all jokes into memory, and then return it back at one go, the data of jokes
+can actually flow through your Http4s server without accumulating in the memory.
+
+#+begin_src scala -n
+    case GET -> Root / "joke" =>
+      Kleisli
+        .ask[IO, HasDatabase]
+        .flatMap(
+          db =>
+            Ok(
+              db.transact(stream(quote {   // <- (ref:stream)
+                query[Dao.Joke]
+              }))
+                .map(Repr.View.from)
+            )
+        )
+#+end_src
+
+[[(stream)][=stream=]] is provide by doobie, which returns =Stream[ConnectionIO, A]=, when =transact= it we will get a =Stream[IO, A]=,
+luckly Http4s response accept a =Stream[IO, A]= as long as we have a =EntityEncoder[IO, A]=.
+
+** Feature Toggle =GET /joke/:id=
+It is too straightforward to implement a =GET /joke/:id=:
+#+begin_src scala
+    case GET -> Root / "joke" / IntVar(id) =>
+      for {
+        has <- Kleisli.ask[IO, HasDatabase]
+        joke <- log.infoF(s"getting joke $id") *> Kleisli.liftF(
+          IO.shift(IO.contextShift(ExecutionContext.global))
+        ) *> has.transact(run(quote {
+          query[Dao.Joke].filter(_.id == lift(id)).take(1)
+        }))
+        resp <- joke match {
+          case a :: Nil => Ok(a)
+          case _        => NotFound(id)
+        }
+      } yield resp
+#+end_src
+
+Let's add some feature to it, for instance, if there is no joke in database, how about
+randomly generate some dad joke? And we like 50% of users can see random joke instead of hitting =NotFound=
+
+To prepare a feature toggle in Finagle, you have to put a file in directory
+=src/main/resources/com/twitter/toggles/configs/com.your.domain.http4sexample.json=.
+where =com.your.domain.http4sexample= is your application package.
+
+And then put in the toggle:
+#+begin_src json
+{
+  "toggles": [
+    {
+      "id": "com.your.domain.http4sexample.useDadJoke",
+      "description": "random generate dad joke",
+      "fraction": 0.5
+    }
+  ]
+}
+#+end_src
+
+It is good practice to have =id= naming with proper namespace too.
+
+=0.5= fraction means there will be 50% chance for the toggle to be on status.
+
+How can we use this toggle in source code?[fn:3]
+
+Inject =HasToggle= effect
+#+begin_src diff
+ - has <- Kleisli.ask[IO, HasDatabase]
+ + has <- Kleisli.ask[IO, HasDatabase with HasToggle]
+#+end_src
+
+Switch on the toggle
+#+begin_src scala -n
+        dadJoke =                             // <- (ref:declare)
+          if (has.toggleOn("com.your.domain.http4sexample.useDadJoke"))
+            log.infoF(s"cannot find joke $id") *> dadJokeApp.flatMap(NotFound(_))
+          else
+            NotFound(id)
+        resp <- joke match {
+          case a :: Nil => Ok(a)
+          case _        => dadJoke            // <- (ref:usage)
+        }
+#+end_src
+=dadJokeApp= is a HTTP effect which call another API, we will go through later.
+
+Here is another advantage of FP over Imperative Programming, [[(declare)][=dadJoke=]] is lazy and referential transparent, which means
+I can place it anywhere, and whenever I reference it will always be the same thing. While in Imperative Programming
+this won't be always true, i.e. when you declare a =val printlog = println("log")= it will execute immediately
+where it declared. But later on when you refer to =printlog=, it is not the same thing it was defined. Since
+the log is already print, it won't print again.
+
+So, simply declare a =dadJoke= won't execute =dadJokeApp= to actually send out the request.
+We can safely put it for later usage in [[(usage)][=pattern matching=]]
+
+** Random dad joke =GET /random-joke=
+To get a random dad joke remotely, you will need a Http client that talk connected to the remote host.
+
+Finagle Client is actually a RPC client, which means a client will bind to particular service.
+
+Assuming we have already define a =jokeClient= in =HasClient=, a dad joke endpoint will be as simple as:
+#+begin_src scala
+  val dadJokeApp =
+    Kleisli.ask[IO, HasClient].flatMapF(_.jokeClient.expect[DadJoke]("/"))
+#+end_src
+
+The client can be make from =resource/package.scala= and then inject into =AppResource=
+#+begin_src scala
+      js <- http.mk(cfg.jokeService)
+#+end_src
+
+where =cfg.jokeService= is =uri"https://icanhazdadjoke.com"=
+
+** Tracing Metrics and Logging
+Finagle already provide sophisticated tracing and metrics, zipkin tracing is by default enable,
+but it is sample rate is 0.1%, to verify it work, we could start the server with parameter
+
+#+begin_example
+> sbt '~reStart -zipkin.initialSampleRate=1'
+#+end_example
+
+Sample rate 1 means 100% of trace will report to zipkin.
+
+#+begin_example
+curl localhost:8080/random-joke
+#+end_example
+*** Logging
+You can see the server console will print something like:
+#+begin_example
+root [7cb6f08c27a8b33c.7cb6f08c27a8b33c<:7cb6f08c27a8b33c finagle/netty4-2-2] INFO  c.y.d.h.r.joke - generating random joke
+root [7cb6f08c27a8b33c.7cb6f08c27a8b33c<:7cb6f08c27a8b33c finagle/netty4-2-2] INFO  c.y.d.h.r.joke - getting dad joke...
+#+end_example
+
+The format of trace id is:
+#+begin_example
+            TRACE ID         SPAN ID           PARENT ID
+ SERVICE A  7cb6f08c27a8b33c.7cb6f08c27a8b33c<:7cb6f08c27a8b33c
+#+end_example
+Logs belong to the same request will print the exactly same =TRACE ID=
+
+Logger format can be adjusted in =src/main/resources/logback.xml=
+#+begin_src xml
+    <encoder>
+      <pattern>[%X{trace.id} %thread] %highlight(%-5level) %cyan(%logger{15}) - %msg %n</pattern>
+    </encoder>
+#+end_src
+*** Zipkin Tracing
+if you grab =7cb6f08c27a8b33c= and search as trace id in =localhost:9411=
+
+https://www.evernote.com/l/ABdFXDYBcnBAFYGQ-8X_us6xcsq42kL2Vn0B/image.png
+
+It will show the trace of the request, from the trace you can simply tell that
+our server took 3.321s to response, where 2.955s was spend in requesting =icanhazdadjoke.com=.
+
+*** TODO Prometheus Metrics
+
+
+
+** TODO Why Resource of resource
+
+** TODO Test
 ** TODO Package and deploy
 
 * Footnotes
+
+[fn:4] Kleisli is also known as ReaderT https://blog.oyanglul.us/scala/into-the-readert-verse 
+
+[fn:3] https://github.com/jcouyang/http4s-example/blob/master/src/main/scala/com/your/domain/http4sexample/resource/toggle.scala#L9 
 
 [fn:2] follow the structure of [[https://guides.rubyonrails.org/getting_started.html][Getting Started with Rails]]
 

@@ -68,10 +68,7 @@ object joke {
 
     case GET -> Root / "joke" / IntVar(id) =>
       for {
-        has <-
-          Kleisli
-            .ask[IO, HasDatabase with HasToggle]
-
+        has <-  Kleisli.ask[IO, HasDatabase with HasToggle]
         joke <- log.infoF(s"getting joke $id") *> Kleisli.liftF(
           IO.shift(IO.contextShift(ExecutionContext.global))
         ) *> has.transact(run(quote {

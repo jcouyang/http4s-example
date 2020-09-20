@@ -7,12 +7,8 @@ services:
       - 9411:9411
   db:
     image: postgres:10
-    # volumes:
-      # - db-data:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=joke
       - POSTGRES_HOST_AUTH_METHOD=trust
     ports:
       - 5432:5432
-volumes:
-  db-data:
