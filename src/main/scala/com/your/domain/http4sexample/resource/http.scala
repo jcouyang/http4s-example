@@ -17,21 +17,24 @@ object http {
     (uri.scheme, uri.host, uri.port) match {
       case (Some(Scheme.https), Some(host), None) =>
         Finagle.mkClient[IO](
-          Http.client
+          Http.client.withHttp2
             .withTls(host.value)
             .withHttpStats
+            .withStatsReceiver(PrometheusExporter.metricStatsReceiver)
             .newService(s"$host:443")
         )
       case (Some(Scheme.https), Some(host), Some(port)) =>
         Finagle.mkClient[IO](
-          Http.client
+          Http.client.withHttp2
             .withTls(host.value)
             .withHttpStats
+            .withStatsReceiver(PrometheusExporter.metricStatsReceiver)
             .newService(s"$host:$port")
         )
       case (_, Some(host), Some(port)) =>
         Finagle.mkClient[IO](
-          Http.client.withHttpStats
+          Http.client.withHttpStats.withHttp2
+            .withStatsReceiver(PrometheusExporter.metricStatsReceiver)
             .newService(s"$host:$port")
         )
       case _ =>

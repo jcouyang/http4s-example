@@ -11,7 +11,7 @@ import zipkin2.finagle.http.HttpZipkinTracer
 import org.http4s.HttpRoutes
 import cats.data.OptionT
 
-object Main extends TwitterServer {
+object Main extends TwitterServer with PrometheusExporter {
   implicit val ctx: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
   val port = flag("port", ":8080", "Service Port Number")
   def main() =
@@ -20,6 +20,9 @@ object Main extends TwitterServer {
         val service: HttpRoutes[IO] = route.all.flatMapF(resp => OptionT.liftF(deps.use(r => resp.run(r))))
         val server = Http.server
           .withTracer(new HttpZipkinTracer)
+          .withHttp2
+          .withHttpStats
+          .withStatsReceiver(PrometheusExporter.metricStatsReceiver)
           .withLabel("http4s-example")
           .serve(port(), Finagle.mkService[IO](service.orNotFound))
         logger.info(s"Server Started on ${port()}")

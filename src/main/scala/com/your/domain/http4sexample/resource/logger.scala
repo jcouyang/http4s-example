@@ -11,9 +11,9 @@ import cats.effect.concurrent._
 trait HasLogger { self: HasTracer =>
   type Log = Eval[Unit]
   val loggerChannel: Ref[IO, Chain[Log]] = Ref.unsafe(Chain.empty[Log])
-  def logEval =
+  private[resource] def logEval =
     loggerChannel.get.map { l =>
-      org.slf4j.MDC.put("trace.id", tracer.toString)
+      org.slf4j.MDC.put("trace.id", tracer.show)
       l.sequence_.value
     }
 }

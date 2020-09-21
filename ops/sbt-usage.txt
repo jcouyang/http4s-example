@@ -1,6 +1,6 @@
 usage:
-  sbt ~reStart       start server at port 8080(default)
-  sbt testQuick      run test
-  sbt rmUnused       remove unused imports
-  sbt bootstrap      create a runnable binary
-  sbt db/run migrate migrate database
+  sbt ~reStart         start server at port 8080(default)
+  sbt testQuick        run test
+  sbt rmUnused         remove unused imports
+  sbt bootstrap        create a runnable binary
+  sbt 'db/run migrate' migrate database

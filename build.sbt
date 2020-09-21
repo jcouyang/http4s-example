@@ -27,6 +27,8 @@ lazy val root = (project in file("."))
       "org.tpolecat"               %% "doobie-hikari"                  % DoobieVersion,
       "com.twitter"                %% "twitter-server"                 % TwitterVersion,
       "com.twitter"                %% "twitter-server-logback-classic" % TwitterVersion,
+      "com.twitter"                %% "finagle-stats"                  % TwitterVersion,
+      "com.samstarling"            %% "finagle-prometheus"             % "0.0.15",
       "ch.qos.logback"              % "logback-classic"                % "1.2.3",
       "io.zipkin.finagle2"         %% "zipkin-finagle-http"            % "2.2.1",
       "org.scalameta"              %% "munit"                          % MunitVersion % Test,

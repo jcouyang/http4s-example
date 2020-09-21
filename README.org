@@ -384,15 +384,10 @@ curl localhost:8080/random-joke
 *** Logging
 You can see the server console will print something like:
 #+begin_example
-root [7cb6f08c27a8b33c.7cb6f08c27a8b33c<:7cb6f08c27a8b33c finagle/netty4-2-2] INFO  c.y.d.h.r.joke - generating random joke
-root [7cb6f08c27a8b33c.7cb6f08c27a8b33c<:7cb6f08c27a8b33c finagle/netty4-2-2] INFO  c.y.d.h.r.joke - getting dad joke...
+root [7cb6f08c27a8b33c finagle/netty4-2-2] INFO  c.y.d.h.r.joke - generating random joke
+root [7cb6f08c27a8b33c finagle/netty4-2-2] INFO  c.y.d.h.r.joke - getting dad joke...
 #+end_example
 
-The format of trace id is:
-#+begin_example
-            TRACE ID         SPAN ID           PARENT ID
- SERVICE A  7cb6f08c27a8b33c.7cb6f08c27a8b33c<:7cb6f08c27a8b33c
-#+end_example
 Logs belong to the same request will print the exactly same =TRACE ID=
 
 Logger format can be adjusted in =src/main/resources/logback.xml=
@@ -409,15 +404,98 @@ https://www.evernote.com/l/ABdFXDYBcnBAFYGQ-8X_us6xcsq42kL2Vn0B/image.png
 It will show the trace of the request, from the trace you can simply tell that
 our server took 3.321s to response, where 2.955s was spend in requesting =icanhazdadjoke.com=.
 
-*** TODO Prometheus Metrics
+*** Prometheus Metrics
+If you have [[https://prometheus.io][Prometheus]] setup, scrap =localhost:9990/metrics= to get server and client metrics.
 
 
+** Why Resource of resource
+The resource maker's type is slightly tricky because it is =Resource[IO, Resource[IO, AppResource]]=:
+#+begin_src scala
+  def mk(implicit ctx: ContextShift[IO]): Resource[IO, Resource[IO, AppResource]] =
+    for {
+      cfg <- Resource.liftF(Config.all.load[IO])
+      js <- http.mk(cfg.jokeService)
+      db <- database.transactor
+    } yield Resource.make(IO {
+      new AppResource {
+        val config = cfg
+        val jokeClient = js
+        val database = db
+      }
+    }) { res =>
+      res.logEval
+    }
+#+end_src
 
-** TODO Why Resource of resource
+Why should we have nested Resource here?
 
-** TODO Test
-** TODO Package and deploy
+These are actually two different kinds of resource, the first level is whole server scope, all requests through this server share the
+same resource.
+- config
+- database
+- HTTP client
 
+In another word, these resources are acquired when server start, closed when server close.
+And there are few resources not share across server, they are acquired when request arrived, closed when response sent:
+- trace
+- toggle
+- logger
+
+** Test
+Once we implemented all CRUD endpoints for =/joke=, testing these endpoints actually are very easy via [[ScalaCheck][https://github.com/typelevel/scalacheck]]
+property based testing:
+#+begin_src scala -n
+  property("CRUD") {
+    implicit val appRes = new TestAppResource              // <- (ref:testResource)
+    forAll { (requestBody: joke.Repr.Create, updateBody: joke.Repr.Create) =>
+      when(appRes.toggleMap.apply(useDadJokeToggleName))   // <- (ref:toggleOff)
+        .thenReturn(Toggle.off(useDadJokeToggleName))
+      createAndDelete(requestBody)                         // <- (ref:createDelete)
+        .use { id =>
+          assertEquals(query(id).flatMap(_.as[joke.Repr.View]).unsafeRunSync().text, requestBody.text)
+          update(id, updateBody)                           // <- (ref:update)
+            .map(_ => assertEquals(query(id).flatMap(_.as[joke.Repr.View]).unsafeRunSync().text, updateBody.text))
+        }
+        .unsafeRunSync()                                   // <- (ref:execute)
+    }
+  }
+#+end_src
+
+To test all CRUD we just need scalacheck to randomly generate arbitrary create request body and update request body.
+
+1. New a fake resource [[(testResource)][TestAppResource]], defined in =SpecHelper.scala=
+2. Don't forget to [[(toggleOff)][toggle off]] our fancy dad joke toggle
+3. Make [[(createDelete)][create and delete]] a resource so our test data will always clean after assertion
+#+begin_src scala
+def createAndDelete(req: joke.Repr.Create)(implicit router: HttpApp[IO]) =
+    Resource.make[IO, String](create(req))(delete)
+#+end_src
+4. Assert there will be a joke created
+5. [[(update)][Update the joke]] and then query again to verify the data is updated
+6. Don't hesitate to [[(execute)][unsafeRunSync]] the Resource, it is OK to fail fast at runtime in test.
+
+** Package and deploy
+To package the server into a runable binary, simply:
+#+begin_example
+> sbt bootstrap
+#+end_example
+
+To run:
+#+begin_example
+> ./http4s-example
+#+end_example
+
+Package it to docker to ship to heroku or k8s
+#+begin_example
+> docker build . -t http4s-example
+#+end_example
+
+The same way we can package and deploy migration scripts as well
+
+#+begin_example
+> sbt db/bootstrap
+> ./http4s-example-db-migration migrate
+#+end_example
 * Footnotes
 
 [fn:4] Kleisli is also known as ReaderT https://blog.oyanglul.us/scala/into-the-readert-verse 
