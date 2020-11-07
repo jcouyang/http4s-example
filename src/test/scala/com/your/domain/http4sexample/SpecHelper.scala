@@ -15,17 +15,17 @@ trait SpecHelper {
   implicit val ctx: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
   class TestAppResource extends AppResource {
-    val config = Config.all.load[IO].unsafeRunSync()
+    val config = Config.all.unsafeRunSync()
     val jokeClient = mock[Client[IO]]
     val database = Transactor.fromDriverManager[IO](
       "org.postgresql.Driver",
-      config.database.jdbc,
-      config.database.user.value,
-      config.database.pass.value,
+      config.app.database.jdbc,
+      config.app.database.user,
+      config.app.database.pass,
       Blocker.liftExecutionContext(ExecutionContexts.synchronous),
     )
-    val tracer = Trace.id
-    val toggleMap = mock[ToggleMap]
+    override val tracer = Trace.id
+    override val toggleMap = mock[ToggleMap]
   }
   implicit def router(implicit res: AppResource) = route.all.flatMapF(resp => OptionT.liftF(resp.run(res))).orNotFound
 

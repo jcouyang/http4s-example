@@ -28,12 +28,10 @@ object database {
     implicit val InstantDecoder: Decoder[Instant] =
       decoder((index, row) => row.getTimestamp(index).toInstant())
   }
-  def transactor(implicit ctx: ContextShift[IO]): Resource[IO, HikariTransactor[IO]] =
+  def transactor(db: DataBaseConfig)(implicit ctx: ContextShift[IO]): Resource[IO, HikariTransactor[IO]] =
     for {
-      db <- Resource.liftF(Config.database.load[IO])
       ce <- ExecutionContexts.fixedThreadPool[IO](32)
       be <- Blocker[IO]
-      xa <-
-        HikariTransactor.newHikariTransactor[IO]("org.postgresql.Driver", db.jdbc, db.user.value, db.pass.value, ce, be)
+      xa <- HikariTransactor.newHikariTransactor[IO]("org.postgresql.Driver", db.jdbc, db.user, db.pass, ce, be)
     } yield xa
 }

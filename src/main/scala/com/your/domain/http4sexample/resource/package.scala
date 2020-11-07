@@ -13,9 +13,9 @@ trait AppResource
 package object resource {
   def mk(implicit ctx: ContextShift[IO]): Resource[IO, Resource[IO, AppResource]] =
     for {
-      cfg <- Resource.liftF(Config.all.load[IO])
-      js <- http.mk(cfg.jokeService)
-      db <- database.transactor
+      cfg <- Resource.liftF(Config.all)
+      js <- http.mk(cfg.app.jokeService)
+      db <- database.transactor(cfg.app.database)
     } yield Resource.make(IO {
       new AppResource {
         val config = cfg

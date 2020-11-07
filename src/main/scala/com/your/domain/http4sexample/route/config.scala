@@ -12,7 +12,7 @@ object config {
   implicit val log = Logger.get()
   val get = AppRoute {
     case GET -> Root / "diagnostic" / "config" =>
-      log.infoF("getting config") *>
-        Kleisli.ask[IO, HasConfig].flatMap(h => Ok(h.config))
+      log.infoF("getting config sha") *>
+        Kleisli.ask[IO, HasConfig].flatMap(h => Ok(h.config.sha))
   }
 }

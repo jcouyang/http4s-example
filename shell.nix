@@ -1,10 +1,13 @@
 with import <nixpkgs> {};
 mkShell {
   shellHook = ''
+            set -a
+            source app.env
+            set +a
             source ops/bin/deps-up
-            export APP_ENV=Local
             sbt 'db/run migrate'
             cat ops/sbt-usage.txt
+            set +e
             '';
   buildInputs = [
     sbt
