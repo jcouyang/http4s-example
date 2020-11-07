@@ -442,7 +442,7 @@ And there are few resources not share across server, they are acquired when requ
 - logger
 
 ** Test
-Once we implemented all CRUD endpoints for =/joke=, testing these endpoints actually are very easy via [[ScalaCheck][https://github.com/typelevel/scalacheck]]
+Once we implemented all CRUD endpoints for =/joke=, testing these endpoints actually are very easy via [[https://github.com/typelevel/scalacheck][ScalaCheck]]
 property based testing:
 #+begin_src scala -n
   property("CRUD") {
