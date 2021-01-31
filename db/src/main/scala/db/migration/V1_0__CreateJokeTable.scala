@@ -1,5 +1,7 @@
 package db
 package migration
+
+import com.your.domain.http4sexample.db.DoobieMigration
 import doobie.implicits._
 
 class V1_0__CreateJokeTable extends DoobieMigration {

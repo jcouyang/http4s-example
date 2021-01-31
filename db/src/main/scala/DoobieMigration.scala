@@ -1,4 +1,5 @@
-package db
+package com.your.domain.http4sexample.db
+
 import cats.effect._
 import doobie.free.connection.ConnectionIO
 import org.flywaydb.core.api.migration.BaseJavaMigration

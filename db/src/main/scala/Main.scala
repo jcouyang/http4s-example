@@ -1,3 +1,5 @@
+package com.your.domain.http4sexample.db
+
 import cats.effect._
 import cats.syntax.all._
 import org.flywaydb.core.Flyway

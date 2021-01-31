@@ -19,7 +19,6 @@ project/plugins/project/
 # End of https://www.toptal.com/developers/gitignore/api/sbt
 .bloop/
 .metals/
-project/metals.sbt
 .idea
 http4s-example
 http4s-example-db-migration
