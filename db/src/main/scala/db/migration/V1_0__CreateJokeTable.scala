@@ -1,5 +1,4 @@
-package db
-package migration
+package db.migration
 
 import com.your.domain.http4sexample.db.DoobieMigration
 import doobie.implicits._
