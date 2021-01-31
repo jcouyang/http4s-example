@@ -1,8 +1,6 @@
 * Get Started with Http4s[fn:2]
 
-[[https://github.com/jcouyang/http4s-example/workflows/Build%20and%20Test/badge.svg]]
-
-#+HTML: <a class="github-button" href="https://github.com/jcouyang/http4s-example" data-icon="octicon-star" aria-label="Star jcouyang/http4s-example on GitHub">Source Code</a>
+#+HTML: <a href=https://github.com/jcouyang/http4s-example/actions><img src=https://github.com/jcouyang/http4s-example/workflows/Build%20and%20Test/badge.svg /></a> <a class="github-button" href="https://github.com/jcouyang/http4s-example" data-icon="octicon-star" aria-label="Star jcouyang/http4s-example on GitHub">Source Code</a>
 
 This guide covers getting up and running a production ready http4s example.
 
