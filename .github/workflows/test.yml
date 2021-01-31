@@ -16,7 +16,8 @@ jobs:
         nix_path: nixpkgs=channel:nixos-20.09
     - uses: cachix/cachix-action@v8
       with:
-        name: http4s-example-nix-cache
+        name: jcouyang
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - name: Cache Coursier
       uses: actions/cache@v1
       with:
