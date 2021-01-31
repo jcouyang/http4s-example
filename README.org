@@ -2,7 +2,7 @@
 
 [[https://github.com/jcouyang/http4s-example/workflows/Build%20and%20Test/badge.svg]]
 
-#+HTML: <a class="github-button" href="https://github.com/jcouyang/http4s-example/fork" data-icon="octicon-repo-forked" aria-label="Fork jcouyang/http4s-example on GitHub">Fork</a>
+#+HTML: <a class="github-button" href="https://github.com/jcouyang/http4s-example" data-icon="octicon-star" aria-label="Star jcouyang/http4s-example on GitHub">Source Code</a>
 
 This guide covers getting up and running a production ready http4s example.
 
